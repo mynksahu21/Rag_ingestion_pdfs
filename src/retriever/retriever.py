@@ -22,6 +22,7 @@ from src.config.settings import settings
 from src.config.logging_cfg import logger
 from src.config.models import QueryResult, QuerySession, RetrievedChunk
 from src.embeddings.vector_store import vector_store
+from src.retriever.reranker import reranker
 
 
 class Retriever:
@@ -33,6 +34,9 @@ class Retriever:
 
     # ── Single query ──
 
+    # Fetch this many hybrid candidates before reranking
+    _RERANK_FETCH_MULTIPLIER = 4
+
     def search(
         self,
         query: str,
@@ -40,13 +44,23 @@ class Retriever:
         collection_id: Optional[str] = None,
     ) -> QueryResult:
         """
-        Search the vector store and return a QueryResult with full metadata.
+        Hybrid retrieval → GPT-5.1 reranking → top_k results.
+
+        Pipeline:
+          1. Hybrid search (0.7 semantic + 0.3 BM25) fetches top_k * 4 candidates
+          2. GPT-5.1 reranks all candidates by relevance in a single API call
+          3. Top_k are returned with a rerank_score field
         """
         start = time.time()
 
+        # Step 1: fetch a wider candidate pool for reranking
+        fetch_k = top_k * self._RERANK_FETCH_MULTIPLIER
         raw_results = vector_store.search(
-            query=query, top_k=top_k, source=collection_id
+            query=query, top_k=fetch_k, source=collection_id
         )
+
+        # Step 2: rerank with GPT-5.1
+        reranked = reranker.rerank(query=query, candidates=raw_results, top_k=top_k)
 
         chunks = [
             RetrievedChunk(
@@ -67,12 +81,12 @@ class Retriever:
                 type=r.get("type", "text"),
                 context_before=r.get("context_before", ""),
                 context_after=r.get("context_after", ""),
-                confidence_score=r.get("confidence_score", 0.92),
+                confidence_score=r.get("rerank_score", r.get("confidence_score", 0.92)),
                 source=r.get("source", ""),
-                score=r.get("score", 0.0),
+                score=r.get("rerank_score", r.get("score", 0.0)),
                 created_at=r.get("created_at", ""),
             )
-            for r in raw_results
+            for r in reranked
         ]
 
         elapsed_ms = (time.time() - start) * 1000
@@ -89,6 +103,7 @@ class Retriever:
         logger.info(
             "retriever.search",
             query=query[:80],
+            candidates_fetched=len(raw_results),
             results=len(chunks),
             elapsed_ms=round(elapsed_ms, 1),
         )

@@ -1,0 +1,39 @@
+# ── Core Framework ──
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+python-multipart==0.0.9
+pydantic==2.9.2
+pydantic-settings==2.5.2
+
+# ── Azure Services ──
+azure-ai-documentintelligence==1.0.0
+azure-core==1.32.0
+
+# ── OpenAI (embeddings + image summarization) ──
+openai==1.58.1
+
+# ── Vector Store ──
+faiss-cpu==1.8.0
+numpy==1.26.4
+rank_bm25==0.2.2
+
+# ── Document Processing ──
+PyMuPDF==1.24.10                    # replaces poppler/pdf2image for PDF image cropping
+python-pptx==1.0.2                  # PPTX processing
+Pillow==10.4.0                      # Image handling
+pytesseract==0.3.13                 # OCR for empty image detection
+
+# ── Text Processing ──
+langchain-text-splitters==0.3.2
+langchain-core==0.3.21
+
+# ── PPTX→PDF conversion (Windows + Office) ──
+comtypes>=1.4.0; sys_platform == "win32"   # PowerPoint COM automation
+
+# ── Utilities ──
+aiofiles==24.1.0
+tenacity==9.0.0
+structlog==24.4.0
+python-dotenv==1.0.1                # .env loading
+httpx>=0.27.0                       # SSL-aware HTTP transport for OpenAI client
+certifi>=2024.2.2                   # CA bundle for corporate SSL / proxy environments

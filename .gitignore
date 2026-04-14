@@ -1,0 +1,77 @@
+# ── Environment & Secrets ──
+.env
+.env.*
+!.env.example
+
+# ── Python ──
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+wheels/
+.eggs/
+.Python
+pip-wheel-metadata/
+MANIFEST
+
+# ── Virtual Environments ──
+pdf/
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# ── Testing & Coverage ──
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+nosetests.xml
+coverage.xml
+*.cover
+
+# ── Type Checking ──
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pytype/
+
+# ── Data & Uploads (generated at runtime) ──
+data/
+!data/.gitkeep
+
+# ── Vector Index (large binary, rebuilt on ingest) ──
+data/vector_index/
+
+# ── IDE & Editor ──
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ── Claude Code ──
+.claude/
+
+# ── Logs ──
+*.log
+logs/
+
+# ── Jupyter ──
+.ipynb_checkpoints/
+*.ipynb
+
+# ── Misc ──
+*.bak
+*.tmp
+{src

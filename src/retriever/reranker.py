@@ -14,18 +14,32 @@ from src.config.logging_cfg import logger
 from src.utils.openai_client import get_openai_client
 
 _RERANK_PROMPT = """\
-You are a relevance ranking assistant.
+You are an expert relevance ranker for a technical enterprise knowledge base \
+covering Windows, VDI, networking, and IT infrastructure.
 
-Given a user query and a list of document chunks, return a JSON array of \
-the chunk indices (0-based) ordered from MOST to LEAST relevant to the query.
-Include ALL indices. Return ONLY the JSON array — no explanation, no markdown.
+Re-rank the document chunks below by how well each answers the user query. \
+Use these criteria:
 
-Query: {query}
+1. DIRECT ANSWER — Does the chunk directly address what is being asked?
+2. SPECIFICITY — Is it specific to the exact topic, product, or scenario in the query?
+3. COMPLETENESS — Does it contain a full explanation or actionable detail \
+(steps, commands, config, policy) rather than a vague reference?
+4. TECHNICAL DEPTH — Prefer concrete technical details over high-level summaries.
 
-Chunks:
+Rank completely unrelated chunks last.
+
+---
+User Query: {query}
+
+---
+Document Chunks:
 {chunks}
 
-Respond with a JSON array like: [2, 0, 4, 1, 3]
+---
+Return ONLY a JSON array of ALL chunk indices (0-based) from MOST to LEAST relevant. \
+No explanation, no markdown.
+
+Example: [2, 0, 4, 1, 3]
 """
 
 
@@ -54,9 +68,9 @@ class LLMReranker:
         if not candidates:
             return []
 
-        # Build numbered chunk list for the prompt (content only — keeps tokens low)
+        # Build numbered chunk list for the prompt — full content, no truncation
         chunk_lines = "\n\n".join(
-            f"[{i}] {c.get('content', '')[:600]}"
+            f"[{i}] {c.get('content', '')}"
             for i, c in enumerate(candidates)
         )
 
@@ -68,7 +82,7 @@ class LLMReranker:
                 model=settings.AZURE_OPENAI_DEPLOYMENT,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0,
-                max_tokens=256,
+                max_completion_tokens=256,
             )
             raw = response.choices[0].message.content.strip()
 

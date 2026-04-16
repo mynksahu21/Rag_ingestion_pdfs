@@ -27,8 +27,8 @@ pytesseract==0.3.13                 # OCR for empty image detection
 langchain-text-splitters==0.3.2
 langchain-core==0.3.21
 
-# ── PPTX→PDF conversion (Windows + Office) ──
-comtypes>=1.4.0; sys_platform == "win32"   # PowerPoint COM automation
+# ── PPTX→PDF conversion (cross-platform via LibreOffice) ──
+libreoffice-convert>=0.2.0              # shells out to soffice binary
 
 # ── Utilities ──
 aiofiles==24.1.0

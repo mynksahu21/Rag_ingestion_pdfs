@@ -1,25 +1,46 @@
 """
-PPTX → PDF conversion via PowerPoint COM automation (Windows only).
+PPTX → PDF conversion via LibreOffice.
 
-Requires Microsoft Office (PowerPoint) to be installed.
-Uses comtypes to drive the PowerPoint COM interface.
+Requires LibreOffice to be installed and the `libreoffice-convert` Python
+package (which shells out to the `soffice` binary).
+
+On Windows, LibreOffice is typically NOT on PATH.  The converter probes the
+standard installation directories automatically.
 """
 from __future__ import annotations
 
-import os
 import sys
 from pathlib import Path
 
 from src.config.logging_cfg import logger
 
+# Common Windows installation paths for soffice.exe (tried in order).
+_WINDOWS_SOFFICE_CANDIDATES = [
+    r"C:\Program Files\LibreOffice\program\soffice.exe",
+    r"C:\Program Files (x86)\LibreOffice\program\soffice.exe",
+]
+
+
+def _soffice_path() -> str | None:
+    """Return the soffice binary path, or None to let the library search PATH."""
+    if sys.platform == "win32":
+        for candidate in _WINDOWS_SOFFICE_CANDIDATES:
+            if Path(candidate).exists():
+                return candidate
+        raise RuntimeError(
+            "LibreOffice not found. Install it from https://www.libreoffice.org/download/ "
+            "or add soffice.exe to your PATH."
+        )
+    return None  # macOS / Linux: rely on PATH
+
 
 def convert_pptx_to_pdf(pptx_path: str, output_dir: str) -> str:
     """
-    Convert a PPTX file to PDF using PowerPoint COM automation.
+    Convert a PPTX file to PDF using LibreOffice.
 
     Parameters
     ----------
-    pptx_path  : absolute path to the source .pptx file
+    pptx_path  : absolute path to the source .pptx / .ppt file
     output_dir : directory where the output PDF will be written
 
     Returns
@@ -28,55 +49,31 @@ def convert_pptx_to_pdf(pptx_path: str, output_dir: str) -> str:
 
     Raises
     ------
-    RuntimeError if not running on Windows or if comtypes is unavailable.
-    Exception propagated from PowerPoint COM on conversion failure.
+    RuntimeError if libreoffice-convert is unavailable or LibreOffice is not found.
+    Exception propagated from LibreOffice on conversion failure.
     """
-    if sys.platform != "win32":
-        raise RuntimeError(
-            "PowerPoint COM automation is only available on Windows. "
-            "PPTX conversion requires Microsoft Office to be installed."
-        )
-
     try:
-        import comtypes.client  # noqa: F401 — triggers comtypes availability check
+        import libreoffice_convert
     except ImportError:
         raise RuntimeError(
-            "comtypes is not installed. "
-            "Run: pip install comtypes"
+            "libreoffice-convert is not installed. "
+            "Run: pip install libreoffice-convert"
         )
 
-    pptx_abs = str(Path(pptx_path).resolve())
-    stem = Path(pptx_path).stem
-    pdf_path = str(Path(output_dir).resolve() / f"{stem}.pdf")
+    pptx_abs = Path(pptx_path).resolve()
+    pdf_path = Path(output_dir).resolve() / f"{pptx_abs.stem}.pdf"
 
-    powerpoint = None
-    presentation = None
-    try:
-        import comtypes.client
+    soffice = _soffice_path()  # None on non-Windows → library uses PATH
 
-        powerpoint = comtypes.client.CreateObject("PowerPoint.Application")
-        powerpoint.Visible = 1  # required for RDP / VDI sessions
+    with open(pptx_abs, "rb") as f:
+        pptx_bytes = f.read()
 
-        presentation = powerpoint.Presentations.Open(
-            pptx_abs,
-            ReadOnly=1,
-            Untitled=0,
-            WithWindow=0,
-        )
+    convert_kwargs: dict = {"unoconv": False}
+    if soffice is not None:
+        convert_kwargs["soffice_path"] = soffice
 
-        ppSaveAsPDF = 32
-        presentation.SaveAs(pdf_path, ppSaveAsPDF)
-        logger.info("pptx_to_pdf.converted", src=pptx_abs, dst=pdf_path)
-        return pdf_path
+    pdf_bytes = libreoffice_convert.convert(pptx_bytes, ".pdf", **convert_kwargs)
 
-    finally:
-        if presentation is not None:
-            try:
-                presentation.Close()
-            except Exception:
-                pass
-        if powerpoint is not None:
-            try:
-                powerpoint.Quit()
-            except Exception:
-                pass
+    pdf_path.write_bytes(pdf_bytes)
+    logger.info("pptx_to_pdf.converted", src=str(pptx_abs), dst=str(pdf_path))
+    return str(pdf_path)

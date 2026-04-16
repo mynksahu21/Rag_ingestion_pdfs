@@ -242,16 +242,6 @@ async def do_query(args, collection_id: str | None = None):
     # ── Run batch search (saves results automatically) ──
     session = await retriever.batch_search(queries, top_k=top_k, collection_id=col_id)
 
-    for i, qr in enumerate(session.queries):
-        print(f"  ── Query {i + 1}: \"{qr.query}\" ({qr.query_time_ms:.0f}ms, {qr.total_results} results) ──")
-        for j, chunk in enumerate(qr.results[:3], 1):
-            pg = f"p.{chunk.page}" if chunk.page else "n/a"
-            print(f"    [{j}] {chunk.score:.3f} | {chunk.file_name} | {pg} | {chunk.type}")
-            print(f"        \"{chunk.content[:120].replace(chr(10), ' ')}...\"")
-        if not qr.results:
-            print("    (no results)")
-        print()
-
     # ── Show where results are saved ──
     session_dir = settings.OUTPUT_DIR / "queries" / f"session_{session.session_id}"
     print(f"  💾 Results saved to:")
